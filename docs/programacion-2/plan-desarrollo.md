@@ -116,6 +116,7 @@ Carpeta `api-eventos/database/`, numerados y en orden de ejecución (Supabase �
 | `08_vistas.sql` | `v_cartelera` (eventos publicados con lugar y headliners), `v_lugares` (con la capacidad total calculada), `v_disponibilidad` (por evento, jornada y espacio: capacidad − vendidas), `v_asistencia` (entradas vs. ingresos por jornada), `v_recaudacion` (service charge por productora y mes) |
 | `10_seed_plataforma.sql` | Superadmin y **20 lugares predefinidos** con escenarios, espacios con capacidad y, en algunos, el plano dibujado |
 | `11_seed_demo.sql` | 3 productoras con usuarios, lugares y artistas propios, 1 festival de 3 días completo, 2 recitales y clientes con compras (con service charge) |
+| `12_verificacion_email.sql` | Verificación del email por código (idea del grupo, no la pide ninguna consigna): `usuarios.email_verificado` y `codigos_verificacion` |
 
 Las restricciones (CHECK, UNIQUE, FK compuestas, EXCLUDE, triggers) están listadas en [base-de-datos/der.md](../base-de-datos/der.md#4-restricciones-de-integridad).
 
@@ -157,7 +158,9 @@ src/
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | POST | `/api/auth/login` | Devuelve JWT y datos del usuario |
-| POST | `/api/auth/registro` | Alta de **cliente** (los otros roles los crea el superadmin) |
+| POST | `/api/auth/registro` | Alta de **cliente** (los otros roles los crea el superadmin). Manda un código por mail |
+| POST | `/api/auth/verificar` | Verifica el email con el código e inicia sesión |
+| POST | `/api/auth/reenviar-codigo` | Manda un código nuevo |
 | GET | `/api/auth/yo` | Usuario actual |
 
 **Público**

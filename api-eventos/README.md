@@ -50,7 +50,9 @@ Las rutas con candado necesitan el header `Authorization: Bearer <token>` (el to
 | Método | Ruta | Quién | Acción | Respuesta |
 | ------ | ---- | ----- | ------ | --------- |
 | POST | `/api/auth/login` | todos | `{ email, password }` → `{ token, usuario }` | 200 / 400 / 401 / 403 |
-| POST | `/api/auth/registro` | todos | Alta de **cliente** y login → `{ token, usuario }` | 201 / 400 / 409 |
+| POST | `/api/auth/registro` | todos | Alta de **cliente**. Manda un código por mail → `{ mensaje, email }` (sin token) | 201 / 400 / 409 / 503 |
+| POST | `/api/auth/verificar` | todos | `{ email, codigo }` → verifica el email e inicia sesión → `{ token, usuario }` | 200 / 400 / 429 |
+| POST | `/api/auth/reenviar-codigo` | todos | `{ email }` → manda un código nuevo (uno por minuto) | 200 / 429 / 503 |
 | GET | `/api/auth/yo` | 🔒 cualquiera | Usuario de la sesión | 200 / 401 |
 | GET | `/api/admin/empresas` | 🔒 superadmin | Listar productoras | 200 |
 | GET | `/api/admin/empresas/:id` | 🔒 superadmin | Obtener una | 200 / 404 |
@@ -67,6 +69,13 @@ Las rutas con candado necesitan el header `Authorization: Bearer <token>` (el to
 - Errores: siempre `{ mensaje }`. Si son de validación, además `errores: [{ campo, mensaje }]`.
 - Sin token o con token vencido → 401. Con un rol que no corresponde → 403.
 - Un usuario dado de baja, o de una productora dada de baja, no puede iniciar sesión (403).
+- Verificación del email: un cliente recién registrado no puede iniciar sesión hasta ingresar el código de 6 dígitos que le llega por mail.
+  El login responde 403 con `motivo: "email_no_verificado"` (el front lo manda a `/verificar`).
+  El código vence a los 15 minutos y con 5 intentos fallidos hay que pedir otro. Los usuarios que crea el superadmin no lo necesitan.
+  - El mail sale de una cuenta de Gmail (`GMAIL_USUARIO` y `GMAIL_CLAVE_APP` en el `.env`, ver `.env.example`).
+    Si no están configuradas, **el código aparece en la consola de la API**: sirve para probar sin Gmail.
+  - Para sacar la contraseña de aplicación: cuenta de Google → Seguridad → activar la verificación en 2 pasos →
+    "Contraseñas de aplicaciones" → crear una para "Backstage". Son 16 letras.
 - Empresas: `nombre` y `cuit` (formato `30-12345678-9`) son obligatorios; `cargo_servicio_pct` va de 0 a 100 (por defecto 10).
   Un campo opcional enviado vacío (`""` o `null`) se borra. Un CUIT repetido responde 409.
 - Una productora con usuarios, lugares, artistas o eventos no se borra (409): se da de baja con `activo: false`.
@@ -102,6 +111,7 @@ Los scripts de [database/](database/) se corren **en orden** en Supabase (SQL Ed
 | `08_vistas.sql` | `v_lugares`, `v_disponibilidad`, `v_cartelera`, `v_asistencia`, `v_recaudacion` |
 | `10_seed_plataforma.sql` | Superadmin y 20 lugares de la plataforma |
 | `11_seed_demo.sql` | 3 productoras, usuarios, artistas, 1 festival, 2 recitales y compras |
+| `12_verificacion_email.sql` | Columna `usuarios.email_verificado` (los que ya existen quedan verificados) y tabla `codigos_verificacion` |
 
 Usuarios de prueba: `admin@backstage.com` / `admin123` (superadmin); `staff@eventosdelcentro.com`,
 `staff@fiestasnorte.com`, `staff@produccionessur.com` (empresa) y `lucia.gomez@mail.com`, `martin.diaz@mail.com`,

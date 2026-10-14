@@ -22,7 +22,8 @@ function Registro() {
     setEnviando(true);
     try {
       await registro(datos);
-      navigate("/", { replace: true });
+      // La cuenta queda creada pero hay que verificar el email con el código que llega por mail
+      navigate("/verificar", { replace: true, state: { email: datos.email } });
     } catch (err) {
       // Los errores de validación de la API se muestran debajo de cada campo
       const campos = erroresPorCampo(err);

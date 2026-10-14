@@ -206,6 +206,7 @@ erDiagram
 | --- | --- | --- |
 | **empresas** | Productora de eventos: el *tenant* de la plataforma | superadmin |
 | **usuarios** | Cualquier persona con login. El `rol` define si es superadmin, personal de una productora o cliente | superadmin (empresa), autoregistro (cliente) |
+| **codigos_verificacion** | Código de 6 dígitos que se manda por mail para verificar el email del cliente (se guarda hasheado, vence a los 15 minutos) | sistema (al registrarse) |
 | **lugares** | Estadio, teatro, predio, club. Si `id_empresa` está vacío es de la plataforma; si no, es privado de una productora | superadmin o productora |
 | **escenarios** | Escenario físico de un lugar (Principal, Alternativo, Carpa electrónica…) | quien cargó el lugar |
 | **espacios** | Sector vendible del lugar (Platea, Campo, VIP). Su `capacidad` es el cupo | quien cargó el lugar |
@@ -226,6 +227,7 @@ erDiagram
 
 | Relación | Cardinalidad | Lectura |
 | --- | --- | --- |
+| usuarios — codigos_verificacion | 1 : 0..1 | Un código vigente por usuario. Se borra al verificar o al pedir otro (CASCADE si se borra el usuario) |
 | empresas — usuarios | 1 : 0..N | Una productora tiene muchos usuarios. Un usuario de rol `empresa` pertenece a exactamente una; superadmin y cliente, a ninguna |
 | empresas — lugares | 0..1 : 0..N | Un lugar es de una productora (privado) o de ninguna (de la plataforma) |
 | empresas — artistas | 1 : 0..N | Cada artista pertenece a una productora |

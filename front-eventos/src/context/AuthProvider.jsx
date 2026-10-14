@@ -30,8 +30,14 @@ export function AuthProvider({ children }) {
     return iniciarSesion(data);
   };
 
+  // El registro no inicia sesión: primero hay que verificar el email con el código que llega por mail
   const registro = async (datos) => {
     const { data } = await authService.registro(datos);
+    return data;
+  };
+
+  const verificar = async (email, codigo) => {
+    const { data } = await authService.verificar(email, codigo);
     return iniciarSesion(data);
   };
 
@@ -41,7 +47,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, registro, logout }}>
+    <AuthContext.Provider value={{ usuario, cargando, login, registro, verificar, logout }}>
       {children}
     </AuthContext.Provider>
   );

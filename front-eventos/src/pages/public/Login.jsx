@@ -25,6 +25,11 @@ function Login() {
       // Vuelve a la página que quería ver, o a la de inicio de su rol
       navigate(location.state?.desde ?? inicioDeRol(logueado.rol), { replace: true });
     } catch (err) {
+      // Se registró pero nunca ingresó el código: a la pantalla de verificación, con un código nuevo
+      if (err.response?.data?.motivo === "email_no_verificado") {
+        navigate("/verificar", { state: { email, reenviar: true } });
+        return;
+      }
       setError(mensajeDeError(err, "No se pudo iniciar sesión"));
       setEnviando(false);
     }

@@ -20,3 +20,10 @@ export const loginSchema = z.object({
 
 // Solo se registran clientes; los usuarios de las productoras los crea el superadmin.
 export const registroSchema = z.object(camposUsuario);
+
+export const verificarSchema = z.object({
+  email,
+  codigo: z.string().trim().regex(/^\d{6}$/, "El código tiene 6 números")
+});
+
+export const reenviarSchema = z.object({ email });

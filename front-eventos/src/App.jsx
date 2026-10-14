@@ -6,6 +6,7 @@ import PanelLayout from "./layouts/PanelLayout.jsx";
 import Cartelera from "./pages/public/Cartelera.jsx";
 import Login from "./pages/public/Login.jsx";
 import Registro from "./pages/public/Registro.jsx";
+import VerificarEmail from "./pages/public/VerificarEmail.jsx";
 import Empresas from "./pages/admin/Empresas.jsx";
 import EmpresaForm from "./pages/admin/EmpresaForm.jsx";
 import Inicio from "./pages/panel/Inicio.jsx";
@@ -25,6 +26,7 @@ function App() {
         <Route path="/" element={<Cartelera />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Registro />} />
+        <Route path="/verificar" element={<VerificarEmail />} />
       </Route>
 
       {/* Superadmin */}

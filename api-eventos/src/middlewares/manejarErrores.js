@@ -52,7 +52,7 @@ const errorDePostgres = (error) => {
 // eslint-disable-next-line no-unused-vars
 export const manejarErrores = (error, req, res, next) => {
   if (error instanceof ErrorHttp) {
-    return res.status(error.status).json({ mensaje: error.message });
+    return res.status(error.status).json({ mensaje: error.message, ...error.datos });
   }
 
   if (error instanceof ZodError) {

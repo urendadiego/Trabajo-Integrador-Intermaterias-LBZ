@@ -8,7 +8,7 @@ DROP TABLE IF EXISTS
     ingresos, entradas, compras, tarifas,
     presentaciones, evento_escenarios, jornadas, eventos, artistas,
     elementos_plano, espacios, escenarios, lugares,
-    usuarios, empresas
+    codigos_verificacion, usuarios, empresas
 CASCADE;
 
 DROP FUNCTION IF EXISTS

@@ -34,7 +34,18 @@ Table usuarios {
   rol varchar(15) [not null, note: "CHECK IN ('superadmin','empresa','cliente')"]
   id_empresa int [note: 'Obligatorio si rol = empresa, NULL en los demás. CHECK ((rol = empresa) = (id_empresa IS NOT NULL))']
   activo boolean [not null, default: true]
+  email_verificado boolean [not null, default: false, note: 'Los clientes lo verifican con un código por mail; los que crea el superadmin nacen verificados']
   fecha_creacion timestamp [not null, default: `now()`]
+}
+
+Table codigos_verificacion {
+  id_codigo serial [pk]
+  id_usuario int [not null]
+  codigo_hash varchar(100) [not null, note: 'bcrypt del código de 6 dígitos']
+  intentos int [not null, default: 0, note: 'CHECK >= 0. Con 5 intentos fallidos hay que pedir otro']
+  expira timestamp [not null, note: '15 minutos después de crearlo']
+  fecha_creacion timestamp [not null, default: `now()`]
+  Note: 'Un código vigente por usuario: al pedir uno nuevo se borran los anteriores'
 }
 
 // ───────────────────────── Lugares ─────────────────────────
@@ -246,6 +257,7 @@ Table ingresos {
 // ───────────────────────── Relaciones ─────────────────────────
 
 Ref: usuarios.id_empresa > empresas.id_empresa [delete: restrict]
+Ref: codigos_verificacion.id_usuario > usuarios.id_usuario [delete: cascade]
 Ref: lugares.id_empresa > empresas.id_empresa [delete: restrict]
 Ref: artistas.id_empresa > empresas.id_empresa [delete: restrict]
 Ref: eventos.id_empresa > empresas.id_empresa [delete: restrict]

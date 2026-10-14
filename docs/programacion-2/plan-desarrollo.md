@@ -257,7 +257,7 @@ src/
 | **1. Base de datos** | Scripts 01–08 corriendo en Supabase, más los seeds 10 y 11 | 0 | Scripts listos y probados; falta correrlos en Supabase |
 | **2. Base del backend** | Auth, middlewares, manejo de errores, mover `empresas` a `/api/admin` | 1 | Hecha |
 | **3. Base del front** | AuthContext, api.js, layouts, RutaProtegida, login | 2 | Hecha |
-| **4. Superadmin** | Productoras, usuarios, catálogo de lugares (escenarios, espacios) y artistas | 2, 3 | Productoras hecho |
+| **4. Superadmin** | Productoras, usuarios, catálogo de lugares (escenarios, espacios) y artistas | 2, 3 | Productoras hecho. Usuarios: backend hecho, falta la pantalla |
 | **5. Empresa** | Lugares y artistas propios, asistente de evento completo, publicar | 4 (usa el catálogo) | |
 | **6. Público y cliente** | Cartelera, detalle con grilla, registro, compra, mis entradas | 5 (necesita eventos publicados) | Registro hecho |
 | **7. Ventas y control** | Ventas por evento, validar entradas, métricas | 6 | |

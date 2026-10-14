@@ -1,7 +1,7 @@
 # API Eventos
 
 API del sistema de eventos **multitenant** (Node.js + Express + PostgreSQL).
-Hoy tiene el login y el CRUD de productoras para el superadmin; la base ya tiene el modelo completo.
+Hoy tiene el login y, para el superadmin, el CRUD de productoras y de usuarios; la base ya tiene el modelo completo.
 
 ## Puesta en marcha
 
@@ -57,6 +57,11 @@ Las rutas con candado necesitan el header `Authorization: Bearer <token>` (el to
 | POST | `/api/admin/empresas` | 🔒 superadmin | Crear | 201 / 400 / 409 |
 | PUT | `/api/admin/empresas/:id` | 🔒 superadmin | Editar (solo los campos que vienen) | 200 / 400 / 404 / 409 |
 | DELETE | `/api/admin/empresas/:id` | 🔒 superadmin | Borrar (solo si no tiene datos) | 204 / 404 / 409 |
+| GET | `/api/admin/usuarios` | 🔒 superadmin | Listar. Filtros opcionales: `?rol=empresa&id_empresa=2&activo=true&buscar=texto` | 200 / 400 |
+| GET | `/api/admin/usuarios/:id` | 🔒 superadmin | Obtener uno | 200 / 404 |
+| POST | `/api/admin/usuarios` | 🔒 superadmin | Crear (cualquier rol) | 201 / 400 / 409 |
+| PUT | `/api/admin/usuarios/:id` | 🔒 superadmin | Editar (solo los campos que vienen; el rol no se cambia) | 200 / 400 / 404 / 409 |
+| DELETE | `/api/admin/usuarios/:id` | 🔒 superadmin | Borrar (solo si no tiene compras) | 204 / 400 / 404 / 409 |
 | GET | `/api/salud` | todos | `{ ok, instancia }`, para ver qué réplica respondió | 200 |
 
 - Errores: siempre `{ mensaje }`. Si son de validación, además `errores: [{ campo, mensaje }]`.
@@ -65,6 +70,12 @@ Las rutas con candado necesitan el header `Authorization: Bearer <token>` (el to
 - Empresas: `nombre` y `cuit` (formato `30-12345678-9`) son obligatorios; `cargo_servicio_pct` va de 0 a 100 (por defecto 10).
   Un campo opcional enviado vacío (`""` o `null`) se borra. Un CUIT repetido responde 409.
 - Una productora con usuarios, lugares, artistas o eventos no se borra (409): se da de baja con `activo: false`.
+- Usuarios: `email`, `password` (mínimo 6), `nombre` y `rol` (`superadmin`, `empresa` o `cliente`) son obligatorios al crear;
+  `apellido`, `dni` (solo números, 7 a 10) y `telefono` son opcionales. El email se guarda en minúscula y no se repite (409).
+  - `id_empresa` es obligatorio si el rol es `empresa` y no va en los otros roles. La productora tiene que existir y estar activa.
+  - Nunca se devuelve la contraseña. Si en el PUT viene `password`, se reemplaza.
+  - Un cliente con compras no se borra (409): se da de baja con `activo: false` y ya no puede iniciar sesión.
+  - El superadmin no puede darse de baja ni borrarse a sí mismo, y siempre tiene que quedar al menos uno activo (400).
 - Cada respuesta trae el header `X-Instancia` (variable `INSTANCIA` o el nombre del equipo), para la demo de réplicas de Sistemas Operativos.
 
 Ejemplo de body para POST `/api/admin/empresas`:

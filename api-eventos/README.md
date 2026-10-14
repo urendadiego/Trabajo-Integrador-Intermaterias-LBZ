@@ -89,6 +89,7 @@ Los scripts de [database/](database/) se corren **en orden** en Supabase (SQL Ed
 | `01` a `06` | Extensiones y tablas. `02` no pisa la tabla `empresas` existente: le agrega las columnas nuevas |
 | `07_triggers.sql` | Reglas que no entran en FK ni CHECK |
 | `08_vistas.sql` | `v_lugares`, `v_disponibilidad`, `v_cartelera`, `v_asistencia`, `v_recaudacion` |
+| `09_seguridad.sql` | RLS en todas las tablas, para que la API pública de Supabase no exponga datos (a nuestra API no le afecta) |
 | `10_seed_plataforma.sql` | Superadmin y 20 lugares de la plataforma |
 | `11_seed_demo.sql` | 3 productoras, usuarios, artistas, 1 festival, 2 recitales y compras |
 
@@ -100,7 +101,8 @@ Los cambios de esquema posteriores van en un script nuevo (`12_agrega_x.sql`), n
 El modelo está explicado en [docs/base-de-datos/der.md](../docs/base-de-datos/der.md).
 
 - CORS solo acepta pedidos desde `FRONTEND_URL` (el front de Vite).
-- Todo el grupo comparte **una sola base** en Supabase (la tabla `empresas` ya está creada ahí).
+- Todo el grupo comparte **una sola base** en Supabase. Los scripts `01` a `11` ya están corridos ahí
+  (2026-10-13): no hace falta volver a correrlos.
   Si uno crea o borra una empresa, los demás lo ven.
 - [src/data/db.js](src/data/db.js) se conecta usando `DATABASE_URL` (con SSL).
 - Si la URL trae `?sslmode=require` al final, sacarlo (el SSL ya lo configura `db.js`).

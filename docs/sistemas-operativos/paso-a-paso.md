@@ -105,13 +105,15 @@ Todo esto se hace **en las 3 VMs**, igual.
    exit
    ```
    (la contraseña de `su` es la misma del usuario), y después cerrar sesión y volver a entrar.
-5. **Solo si el copiar y pegar no anda** (A6): instalar las Guest Additions a mano.
+5. **Solo si el copiar y pegar no anda** (A6; al pegar en Ubuntu aparece lo último copiado adentro de Ubuntu y no lo de Windows):
+   instalar las Guest Additions desde los paquetes de Ubuntu (escribirlo a mano, todavía no se puede pegar):
    ```
-   sudo apt update
-   sudo apt install -y build-essential bzip2
+   sudo apt install -y virtualbox-guest-x11
    ```
-   Menú de VirtualBox → **Dispositivos** → **Insertar imagen de CD de las Guest Additions**, abrir el CD que aparece en el escritorio,
-   clic derecho → **Abrir en una terminal** y correr `sudo ./VBoxLinuxAdditions.run`. Reiniciar.
+   Reiniciar la VM y volver a marcar **Dispositivos** → **Portapapeles compartido** → **Bidireccional**.
+
+   Si `apt` no encuentra el paquete: menú de VirtualBox → **Dispositivos** → **Insertar imagen de CD de los complementos del invitado**, y en la terminal
+   `sudo apt install -y build-essential bzip2` y `sudo sh /media/$USER/VBox*/VBoxLinuxAdditions.run`. Reiniciar.
 
 ### B2. Actualizar el sistema e instalar herramientas básicas
 
@@ -140,7 +142,9 @@ Para no tener que poner `sudo` delante de cada comando de Docker:
 sudo usermod -aG docker $USER
 ```
 
-**Cerrar sesión y volver a entrar** (o reiniciar). Sin eso el cambio no se aplica.
+**Reiniciar la VM** desde el menú de arriba a la derecha (botón de apagado → **Reiniciar…**). Sin eso el cambio no se aplica.
+En Ubuntu 26.04 no viene `newgrp`, así que no hay atajo, y `sudo reboot` desde la terminal lo bloquea la sesión gráfica
+(*"Operation inhibited"*); si se quiere hacer por terminal: `sudo systemctl reboot -i`.
 
 Verificar:
 
@@ -156,6 +160,13 @@ Que Docker arranque solo cada vez que se prende la VM:
 
 ```
 sudo systemctl enable docker
+```
+
+Docker Hub puede bajar muy lento. Usar el mirror de Google (copia de las imágenes de Docker Hub):
+
+```
+echo '{ "registry-mirrors": ["https://mirror.gcr.io"] }' | sudo tee /etc/docker/daemon.json
+sudo systemctl restart docker
 ```
 
 ### B4. Instalar Claude Code
@@ -406,3 +417,4 @@ El guion completo está en la [sección 6 del plan](plan.md#6-guion-de-la-demo).
 | Se corta la sesión al navegar | `JWT_SECRET` distinto en alguna PC |
 | `http://IP_PC1` da `502 Bad Gateway` | Ningún front o ninguna API responde: revisar `docker ps` en las 3 PCs y las IPs de `docker-compose.servidores.yml` |
 | El build del front se corta o tarda muchísimo | Poca memoria en la VM: subirla a 6 GB (A4) |
+| Las descargas (`docker pull`, `npm ci`) van a pocos KB/s | El adaptador puente sobre Wi-Fi a veces es muy lento. Pasar la red a **NAT** (**Dispositivos → Red → Configuración de red**, se puede con la VM prendida; después apagar y prender la conexión en Ubuntu), bajar todo con `docker pull postgres:17-alpine nginx:alpine` y `docker compose -f docker-compose.app.yml build`, y volver a **Adaptador puente** para levantar. Las imágenes quedan guardadas |

@@ -19,7 +19,7 @@ upstream api_eventos {
 }
 
 server {
-    listen 80;
+    listen 80 default_server;
     server_name _;
     access_log /var/log/nginx/access.log balanceo;
 

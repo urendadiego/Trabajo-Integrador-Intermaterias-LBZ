@@ -43,13 +43,8 @@ services:
       IP_PC2: ${IP_PC2:-192.168.0.11}
       IP_PC3: ${IP_PC3:-192.168.0.12}
     volumes:
-<<<<<<< Updated upstream
       # La imagen reemplaza las ${IP_PC*} del template al arrancar y lo deja en /etc/nginx/conf.d/default.conf.
       # Se monta como default.conf para pisar el que trae la imagen: si no, ese atiende el puerto 80 y muestra "Welcome to nginx"
-=======
-      # La imagen reemplaza las ${IP_PC*} del template al arrancar y lo deja en /etc/nginx/conf.d/default.conf,
-      # pisando el default.conf que trae la imagen (la página "Welcome to nginx")
->>>>>>> Stashed changes
       - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     ports:
       - "80:80"

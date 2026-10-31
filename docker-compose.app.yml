@@ -29,7 +29,7 @@ services:
       INSTANCIA: ${INSTANCIA:-api1}
       # Sin DATABASE_URL: db.js usa las DB_*. La base está en la PC 1 (también para la api de la PC 1,
       # porque vive en el otro compose y llega por el puerto publicado)
-      DB_HOST: ${IP_PC1:-192.168.0.10}
+      DB_HOST: ${IP_PC1:-192.168.0.125}
       DB_PORT: 5432
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}

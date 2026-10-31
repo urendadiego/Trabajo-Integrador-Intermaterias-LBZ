@@ -13,11 +13,13 @@ El porqué de cada decisión está en el [plan de SO](plan.md). Esta guía es so
 
 **Qué corre cada PC**
 
-| PC | Compose | Contenedores |
-| --- | --- | --- |
-| PC 1 (acceso, Salma) | `docker-compose.servidores.yml` **y** `docker-compose.app.yml` | `eventos-db`, `eventos-nginx`, `eventos-front`, `eventos-api1` |
-| PC 2 | `docker-compose.app.yml` | `eventos-front`, `eventos-api2` |
-| PC 3 | `docker-compose.app.yml` | `eventos-front`, `eventos-api3` |
+| PC | Compose | Contenedores | Puertos | En el `.env` |
+| --- | --- | --- | --- | --- |
+| PC 1 (acceso, Salma) | `docker-compose.servidores.yml` **y** `docker-compose.app.yml` | `eventos-db`, `eventos-nginx`, `eventos-front`, `eventos-api1` | 80 balanceador, 5432 base, 8080 y 8081 front, 3000 api | `INSTANCIA=api1`, `PUERTO_WEB=8081` |
+| PC 2 | `docker-compose.app.yml` | `eventos-front`, `eventos-api2` | 80 y 8080 front, 3000 api | `INSTANCIA=api2` (sin `PUERTO_WEB`) |
+| PC 3 | `docker-compose.app.yml` | `eventos-front`, `eventos-api3` | 80 y 8080 front, 3000 api | `INSTANCIA=api3` (sin `PUERTO_WEB`) |
+
+En las 3 PCs, `http://IP-de-la-PC` muestra la app: en la PC 1 entra por el balanceador, en la PC 2 y la PC 3 por el front de esa PC.
 
 > Los comandos de Ubuntu se escriben en la **Terminal** (`Ctrl + Alt + T`). Para pegar en la terminal: `Ctrl + Shift + V`.
 > Cuando un comando pide contraseña (`sudo`), es la del usuario de Ubuntu; mientras se escribe no se ve nada, es normal.
@@ -217,6 +219,7 @@ Cambiar:
 | `POSTGRES_PASSWORD` | Una contraseña para la base. **La misma en las 3 PCs** |
 | `JWT_SECRET` | Un texto largo. **El mismo en las 3 PCs** (si no, la sesión se corta al cambiar de réplica) |
 | `INSTANCIA` | `api1` en la PC 1, `api2` en la PC 2, `api3` en la PC 3 |
+| `PUERTO_WEB` | **Solo en la PC 1:** descomentar la línea (`PUERTO_WEB=8081`), porque el 80 lo usa el balanceador. En la PC 2 y la PC 3 dejarla comentada |
 | `GMAIL_USUARIO`, `GMAIL_CLAVE_APP` | Opcional: solo si se quiere que lleguen los mails. Vacío funciona igual |
 
 Las líneas `IP_PC…` dejarlas comentadas (con `#`): las IPs van en los compose (parte C).
@@ -336,6 +339,14 @@ curl -I http://localhost:8080
 
 El primero responde algo como `{"ok":true,"instancia":"api2"}`; el segundo, `HTTP/1.1 200 OK`.
 
+En la PC 2 y la PC 3 el front también queda en el puerto 80, con su propia api detrás:
+
+```
+curl http://localhost/api/salud
+```
+
+Tiene que responder con la `instancia` de esa PC (`api2` o `api3`).
+
 ---
 
 ## E. Verificar y ensayar la demo
@@ -348,6 +359,14 @@ Desde la VM de la PC 1, hacia la PC 2 y la PC 3:
 curl http://IP_PC2:3000/api/salud
 curl -I http://IP_PC2:8080
 ```
+
+### E1b. Entrar a cada PC por su IP
+
+En el navegador, **`http://IP_PC1`**, **`http://IP_PC2`** y **`http://IP_PC3`** tienen que mostrar la app y dejar usarla (login, cartelera).
+
+- `http://IP_PC1` es el balanceador: reparte entre las 3 PCs.
+- `http://IP_PC2` y `http://IP_PC3` los atiende el nginx del front de esa PC, que le pasa `/api/` a la api de la misma PC.
+  `http://IP_PC2/api/salud` responde siempre `api2`.
 
 ### E2. El balanceo
 
@@ -415,6 +434,7 @@ El guion completo está en la [sección 6 del plan](plan.md#6-guion-de-la-demo).
 | `ping` entre VMs no responde | Las 3 en la misma red; probar con el hotspot de un celular |
 | La API responde pero da error de base | `DB_HOST` en `docker-compose.app.yml` no es la IP de la PC 1, o `POSTGRES_PASSWORD` distinto al de la PC 1 |
 | Se corta la sesión al navegar | `JWT_SECRET` distinto en alguna PC |
+| En la PC 1: `Bind for 0.0.0.0:80 failed: port is already allocated` al levantar la app | Falta `PUERTO_WEB=8081` en el `.env` de la PC 1 (B7) |
 | `http://IP_PC1` da `502 Bad Gateway` | Ningún front o ninguna API responde: revisar `docker ps` en las 3 PCs y las IPs de `docker-compose.servidores.yml` |
 | El build del front se corta o tarda muchísimo | Poca memoria en la VM: subirla a 6 GB (A4) |
 | Las descargas (`docker pull`, `npm ci`) van a pocos KB/s | El adaptador puente sobre Wi-Fi a veces es muy lento. Pasar la red a **NAT** (**Dispositivos → Red → Configuración de red**, se puede con la VM prendida; después apagar y prender la conexión en Ubuntu), bajar todo con `docker pull postgres:17-alpine nginx:alpine` y `docker compose -f docker-compose.app.yml build`, y volver a **Adaptador puente** para levantar. Las imágenes quedan guardadas |

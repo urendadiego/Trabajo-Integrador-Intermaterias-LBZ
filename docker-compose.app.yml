@@ -17,8 +17,14 @@ services:
     build: ./front-eventos
     container_name: eventos-front
     restart: unless-stopped
+    # El nginx del front pasa /api/ a la api de esta PC: tiene que existir antes
+    depends_on:
+      - api
     ports:
+      # 8080: el que usa el balanceador de la PC 1
       - "8080:8080"
+      # 80: para entrar con http://IP-de-esta-PC. En la PC 1 el 80 es del balanceador: ahí va PUERTO_WEB=8081 en el .env
+      - "${PUERTO_WEB:-80}:8080"
 
   api:
     build: ./api-eventos

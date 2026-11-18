@@ -1,44 +1,16 @@
--- ============================================================================
--- DW · 01 · Datos ficticios para la base OPERATIVA
--- ----------------------------------------------------------------------------
--- Se corre en la base: backstage   (después de los scripts 01 a 12 de database/)
---
--- Genera, sobre lo que ya cargan los seeds 10 y 11:
---   · 4 productoras más (quedan 7)
---   · 1.500 clientes
---   · 36 recitales ya realizados, uno cada 17 días (marzo 2025 a noviembre 2026),
---     en 10 lugares medianos de la plataforma
---   · 2 tarifas por sector: Preventa (de 90 a 30 días antes) y General (último mes)
---   · ~50.000 compras con sus entradas; ~7 % de compras rechazadas o canceladas
---
--- Cómo se generan las compras de cada sector:
---   1. Cada recital tiene una "ocupación" al azar (35 % a 100 %; ~1 de cada 8 se agota).
---   2. Objetivo del sector = capacidad × ocupación.
---   3. Se generan compras de 1 a 4 entradas hasta llegar al objetivo, sin pasar la capacidad.
---   4. Los días de anticipación salen de 90 × random()^k: la mayoría compra cerca de la fecha.
---      k depende del tipo de lugar: en los teatros se compra antes (k chico) y en los clubes
---      a último momento (k grande). Así la pregunta 3 del DW tiene algo para mostrar.
---   5. Cada productora tiene su propia proporción de medios de pago (pregunta 4).
---
--- setseed() fija la secuencia de random(): si todos corren los scripts en una base nueva,
--- obtienen los mismos números (útil para que las consultas den igual en todas las PCs).
---
--- NO correrlo dos veces: falla en el primer INSERT por CUIT repetido.
--- NUNCA correrlo en Supabase: son datos de prueba.
--- ============================================================================
-
-SET max_parallel_workers_per_gather = 0;   -- sin paralelismo, para que setseed sea reproducible
+-- Datos ficticios para la base operativa (base backstage, después de los scripts 01 a 12)
+-- setseed hace que los datos generados sean siempre los mismos
+SET max_parallel_workers_per_gather = 0;
 SELECT setseed(0.42);
 
--- ─── 1. Productoras nuevas ──────────────────────────────────────────────────
+-- Productoras
 INSERT INTO empresas (nombre, cuit, email, telefono, direccion, cargo_servicio_pct) VALUES
 ('Andes Live',          '30-71555123-4', 'contacto@andeslive.com',      '261-4201100', 'Av. San Martín 1500, Mendoza', 9),
 ('Litoral Shows',       '30-71666234-5', 'info@litoralshows.com',       '341-4302200', 'Bv. Oroño 900, Rosario',       11),
 ('Cumbre Producciones', '30-71777345-6', 'hola@cumbreproducciones.com', '11-43033300', 'Av. Corrientes 2000, CABA',    10),
 ('Bajo Cero Eventos',   '30-71888456-7', 'staff@bajocero.com',          '11-47044400', 'Thames 1800, CABA',            12);
 
--- ─── 2. Clientes ────────────────────────────────────────────────────────────
--- Contraseña de todos: demo123. El hash se calcula una sola vez (bcrypt es lento a propósito).
+-- Clientes (contraseña: demo123)
 INSERT INTO usuarios (email, password_hash, nombre, apellido, dni, rol, email_verificado, fecha_creacion)
 SELECT
     format('cliente%s@mail.com', lpad(i::text, 4, '0')),
@@ -56,8 +28,7 @@ SELECT
 FROM generate_series(1, 1500) AS i
 CROSS JOIN (SELECT crypt('demo123', gen_salt('bf', 10)) AS hash) AS h;
 
--- ─── 3. Recitales ───────────────────────────────────────────────────────────
--- Los id se piden antes a la secuencia (nextval) para poder relacionar todo sin RETURNING.
+-- Recitales: uno cada 17 días en 10 lugares de la plataforma
 CREATE TEMP TABLE tmp_eventos AS
 WITH prod AS (
     SELECT array_agg(id_empresa ORDER BY id_empresa) AS ids FROM empresas
@@ -81,10 +52,10 @@ SELECT
     art.nombres[1 + (i - 1) % array_length(art.nombres, 1)] AS artista,
     DATE '2025-03-07' + (i - 1) * 17                   AS fecha,
     LEAST(1, 0.35 + random() * 0.75)                   AS ocupacion,
-    (25 + floor(random() * 14) * 5) * 1000             AS precio_base      -- $25.000 a $90.000
+    (25 + floor(random() * 14) * 5) * 1000             AS precio_base
 FROM generate_series(1, 36) AS i, prod, lug, art;
 
--- Exponente de la anticipación según el tipo de lugar (ver punto 4 del encabezado)
+-- Anticipación de compra según el tipo de lugar
 ALTER TABLE tmp_eventos ADD COLUMN exponente NUMERIC;
 UPDATE tmp_eventos te
 SET exponente = CASE l.tipo WHEN 'teatro' THEN 1.2
@@ -95,12 +66,12 @@ SET exponente = CASE l.tipo WHEN 'teatro' THEN 1.2
 FROM lugares l
 WHERE l.id_lugar = te.id_lugar;
 
--- Proporción de medios de pago de cada productora: crédito de 35 % a 70 %, débito de 15 % a 35 %,
--- el resto transferencia
+-- Proporción de medios de pago de cada productora
 CREATE TEMP TABLE tmp_medios AS
 SELECT id_empresa, p_credito, p_credito + 0.15 + random() * 0.20 AS p_debito
 FROM (SELECT id_empresa, 0.35 + random() * 0.35 AS p_credito FROM empresas ORDER BY id_empresa) AS x;
 
+-- Eventos, jornadas y escenarios
 INSERT INTO eventos (id_evento, id_empresa, id_lugar, nombre, descripcion, tipo,
                      fecha_inicio, fecha_fin, estado, fecha_creacion)
 SELECT te.id_evento, te.id_empresa, te.id_lugar,
@@ -117,8 +88,7 @@ SELECT te.id_evento, sc.id_escenario, sc.id_lugar
 FROM tmp_eventos te
 JOIN escenarios sc ON sc.id_lugar = te.id_lugar;
 
--- ─── 4. Tarifas: Preventa y General en cada sector ──────────────────────────
--- El precio depende del sector: VIP ×2, sentado ×1,25, el resto ×1. La preventa sale 20 % menos.
+-- Tarifas: Preventa y General en cada sector
 INSERT INTO tarifas (id_evento, id_lugar, id_espacio, id_jornada, nombre, precio, venta_desde, venta_hasta)
 SELECT te.id_evento, te.id_lugar, es.id_espacio, te.id_jornada, t.nombre,
        round(te.precio_base * m.mult * t.factor / 1000) * 1000,
@@ -133,8 +103,7 @@ CROSS JOIN (VALUES
     ('General',  1.0, INTERVAL '-30 days', INTERVAL '21 hours')
 ) AS t (nombre, factor, desde, hasta);
 
--- ─── 5. Compras ─────────────────────────────────────────────────────────────
--- 5.1 Compras pagadas: se acumulan entradas hasta el objetivo de cada sector
+-- Compras pagadas hasta completar la ocupación de cada sector
 CREATE TEMP TABLE tmp_compras AS
 WITH sectores AS (
     SELECT te.id_evento, te.id_empresa, te.fecha, te.exponente, es.id_espacio,
@@ -155,14 +124,14 @@ SELECT id_evento, id_empresa, fecha, id_espacio, cantidad, dias, 'pagada'::text 
 FROM acumuladas
 WHERE acumulado <= objetivo;
 
--- 5.2 Compras que no se concretaron (~7 %): quedan registradas, sin entradas
+-- Compras rechazadas y canceladas
 INSERT INTO tmp_compras
 SELECT id_evento, id_empresa, fecha, id_espacio, cantidad, dias,
        CASE WHEN random() < 0.8 THEN 'rechazada' ELSE 'cancelada' END
 FROM tmp_compras
 WHERE random() < 0.07;
 
--- 5.3 Se completa cada compra: tarifa según la anticipación, cliente, fecha, medio de pago e importes
+-- Tarifa, cliente, fecha, medio de pago e importes de cada compra
 CREATE TEMP TABLE tmp_compras_final AS
 WITH clientes AS (
     SELECT array_agg(id_usuario ORDER BY id_usuario) AS ids FROM usuarios WHERE rol = 'cliente'
@@ -188,13 +157,14 @@ JOIN tarifas t     ON t.id_evento = b.id_evento AND t.id_espacio = b.id_espacio
 JOIN empresas em   ON em.id_empresa = b.id_empresa
 JOIN tmp_medios md ON md.id_empresa = b.id_empresa;
 
+-- Compras
 INSERT INTO compras (id_compra, id_usuario, id_evento, fecha, subtotal, cargo_servicio_pct, cargo_servicio,
                      total, medio_pago, referencia_pago, estado)
 SELECT id_compra, id_usuario, id_evento, fecha_compra, subtotal, pct, cargo,
        subtotal + cargo, medio_pago, 'SIM-' || upper(substr(md5(id_compra::text), 1, 10)), estado
 FROM tmp_compras_final;
 
--- ─── 6. Entradas: una fila por entrada, solo en las compras pagadas ─────────
+-- Entradas de las compras pagadas
 INSERT INTO entradas (id_compra, id_evento, id_tarifa, precio_pagado)
 SELECT f.id_compra, f.id_evento, f.id_tarifa, f.precio
 FROM tmp_compras_final f
@@ -205,7 +175,7 @@ ORDER BY f.id_compra;
 DROP TABLE tmp_eventos, tmp_medios, tmp_compras, tmp_compras_final;
 ANALYZE;
 
--- ─── Resumen de lo que quedó en la base ─────────────────────────────────────
+-- Resumen
 SELECT 'productoras' AS tabla, COUNT(*) AS filas FROM empresas
 UNION ALL SELECT 'clientes',        COUNT(*) FROM usuarios WHERE rol = 'cliente'
 UNION ALL SELECT 'eventos',         COUNT(*) FROM eventos

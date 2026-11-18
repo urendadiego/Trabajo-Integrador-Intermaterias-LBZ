@@ -1,34 +1,4 @@
--- ============================================================================
--- DW · 05 · Procedimiento de carga (ETL)
--- ----------------------------------------------------------------------------
--- Se corre en la base: backstage_dw      ·   Uso:  CALL cargar_dw();
---
--- ETL = Extract (leer de la operativa), Transform (calcular, filtrar), Load (insertar en el DW).
---
--- Tipo de carga: RECARGA COMPLETA. Vacía el DW y lo vuelve a llenar desde la operativa.
---   · Se puede correr las veces que haga falta y siempre da el mismo resultado (no duplica).
---   · Con nuestro volumen tarda segundos. Con millones de filas convendría una carga
---     incremental (traer solo lo nuevo desde la última carga).
---
--- Orden: PRIMERO las dimensiones, DESPUÉS los hechos.
---   fact_ventas tiene claves foráneas a las dimensiones y necesita sus sk_ ya creadas.
---
--- Todo el CALL es una sola transacción: si algo falla, no queda nada a medias
--- (el DW queda como estaba antes).
---
--- Claves foráneas e índices de fact_ventas: se quitan antes de cargar y se recrean al final.
---   Con las claves puestas, Postgres controla cada venta una por una (130.000 filas × 7 claves):
---   la carga tardaba ~37 s. Al recrearlas, valida todas las filas juntas en una pasada: ~8 s.
---   La integridad se controla igual: si una venta apuntara a una dimensión inexistente,
---   el ADD CONSTRAINT fallaría y se desharía toda la carga.
---
--- Transformaciones que hace (son las que justifican el DW):
---   · Solo pasan las compras PAGADAS: las rechazadas y canceladas no son ventas.
---   · El cargo por servicio está en la compra; se reparte entre sus entradas.
---   · Se calcula dias_anticipacion (no existe en la operativa).
---   · Los ids de la operativa se cambian por las claves sustitutas del DW.
--- ============================================================================
-
+-- Carga del data warehouse (correr en backstage_dw). Uso: CALL cargar_dw();
 CREATE OR REPLACE PROCEDURE cargar_dw()
 LANGUAGE plpgsql
 AS $$
@@ -38,8 +8,7 @@ DECLARE
     v_eventos  INT;
     v_hechos   INT;
 BEGIN
-    -- ─── 0. Preparar y vaciar ───────────────────────────────────────────────
-    -- Quitar claves foráneas e índices de la tabla de hechos (se recrean en el paso 3)
+    -- Se quitan las claves foráneas e índices de los hechos y se recrean al final
     ALTER TABLE fact_ventas
         DROP CONSTRAINT IF EXISTS fact_ventas_fecha_fk,
         DROP CONSTRAINT IF EXISTS fact_ventas_productora_fk,
@@ -52,13 +21,11 @@ BEGIN
                          fact_ventas_evento_idx, fact_ventas_sector_idx, fact_ventas_tarifa_idx,
                          fact_ventas_medio_idx;
 
-    -- RESTART IDENTITY reinicia los SERIAL: las sk_ vuelven a empezar en 1
+    -- Vaciar el DW
     TRUNCATE fact_ventas, dim_fecha, dim_productora, dim_lugar, dim_evento,
              dim_sector, dim_tarifa, dim_medio_pago RESTART IDENTITY;
 
-    -- ─── 1. Dimensiones ─────────────────────────────────────────────────────
-
-    -- dim_fecha: todos los días de los años en que hay compras o eventos
+    -- Dimensiones
     INSERT INTO dim_fecha (sk_fecha, fecha, anio, trimestre, mes, nombre_mes, anio_mes,
                            dia, dia_semana, nombre_dia, fin_de_semana)
     SELECT to_char(d, 'YYYYMMDD')::int,
@@ -111,14 +78,7 @@ BEGIN
                            ELSE medio_pago END
     FROM origen.compras;
 
-    -- ─── 2. Hechos ──────────────────────────────────────────────────────────
-    -- La subconsulta "v" lee de la operativa (Extract) y prepara cada entrada (Transform).
-    -- Los JOIN con las dimensiones cambian cada id por su sk_ (Load).
-    --
-    -- Reparto del cargo por servicio: la compra tiene un solo cargo (por ejemplo $100,01 para
-    -- 3 entradas). Cada entrada lleva el cargo / cantidad truncado a 2 decimales ($33,33) y los
-    -- centavos que sobran ($0,02) van a la primera entrada. Así la suma da exacto el cargo de
-    -- la compra y la verificación coincide al centavo.
+    -- Hechos: solo compras pagadas; el cargo de la compra se reparte entre sus entradas
     INSERT INTO fact_ventas (id_entrada, id_compra, sk_fecha, sk_productora, sk_lugar, sk_evento,
                              sk_sector, sk_tarifa, sk_medio_pago,
                              cantidad, precio_pagado, cargo_servicio, dias_anticipacion)
@@ -162,7 +122,7 @@ BEGIN
     JOIN dim_medio_pago dm ON dm.codigo     = v.medio_pago;
     GET DIAGNOSTICS v_hechos = ROW_COUNT;
 
-    -- ─── 3. Recrear claves foráneas e índices ───────────────────────────────
+    -- Claves foráneas e índices
     ALTER TABLE fact_ventas
         ADD CONSTRAINT fact_ventas_fecha_fk      FOREIGN KEY (sk_fecha)      REFERENCES dim_fecha (sk_fecha),
         ADD CONSTRAINT fact_ventas_productora_fk FOREIGN KEY (sk_productora) REFERENCES dim_productora (sk_productora),
@@ -178,9 +138,9 @@ BEGIN
     CREATE INDEX fact_ventas_sector_idx     ON fact_ventas (sk_sector);
     CREATE INDEX fact_ventas_tarifa_idx     ON fact_ventas (sk_tarifa);
     CREATE INDEX fact_ventas_medio_idx      ON fact_ventas (sk_medio_pago);
-    ANALYZE fact_ventas;   -- estadísticas al día para que las consultas elijan buenos planes
+    ANALYZE fact_ventas;
 
-    -- ─── 4. Registro ────────────────────────────────────────────────────────
+    -- Registro
     INSERT INTO carga_log (inicio, fin, filas_fechas, filas_eventos, filas_hechos)
     VALUES (v_inicio, clock_timestamp(), v_fechas, v_eventos, v_hechos);
 

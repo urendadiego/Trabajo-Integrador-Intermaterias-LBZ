@@ -1,14 +1,6 @@
--- ============================================================================
--- DW · 06 · Verificación de la carga
--- ----------------------------------------------------------------------------
--- Se corre en la base: backstage_dw   (después de CALL cargar_dw();)
---
--- Idea: contar y sumar lo mismo en los dos lados. Si el DW está bien cargado,
--- las diferencias tienen que dar 0. Del lado de la operativa se lee con origen.*
--- (postgres_fdw), así que todo se compara en una sola consulta.
--- ============================================================================
+-- Verificación de la carga (base backstage_dw, después de CALL cargar_dw();)
 
--- ─── 1. Totales generales ───────────────────────────────────────────────────
+-- Totales del DW contra la base operativa: las diferencias tienen que dar 0
 WITH dw AS (
     SELECT COUNT(*)                  AS entradas,
            COUNT(DISTINCT id_compra) AS compras,
@@ -34,9 +26,8 @@ SELECT 'Recaudación productoras ($)', o.recaudacion, d.recaudacion, o.recaudaci
 UNION ALL
 SELECT 'Cargo por servicio ($)', o.cargo_servicio, d.cargo_servicio, o.cargo_servicio - d.cargo_servicio FROM dw d, operativa o;
 
--- ─── 2. Por productora, contra la vista v_recaudacion de la operativa ───────
--- v_recaudacion es la vista que usa el panel de la app: si coincide, el DW
--- dice lo mismo que la aplicación.
+
+-- Recaudación por productora: DW contra la vista v_recaudacion de la operativa
 WITH operativa AS (
     SELECT productora, SUM(subtotal_productora) AS recaudacion, SUM(service_charge) AS cargo
     FROM origen.v_recaudacion
@@ -56,9 +47,8 @@ FROM operativa o
 FULL JOIN dw d ON d.productora = o.productora
 ORDER BY productora;
 
--- ─── 3. Ninguna venta quedó afuera por falta de dimensión ───────────────────
--- Si algún JOIN del procedimiento no encontrara su dimensión, esa entrada no se cargaría
--- y el control 1 daría distinto. Este control lo confirma por evento.
+
+-- Eventos cuya cantidad de entradas no coincide entre la operativa y el DW (tiene que dar 0)
 SELECT COUNT(*) AS eventos_con_diferencia
 FROM (
     SELECT e.id_evento, COUNT(*) AS entradas
@@ -75,5 +65,6 @@ FULL JOIN (
 ) d ON d.id_evento = o.id_evento
 WHERE o.entradas IS DISTINCT FROM d.entradas;
 
--- ─── 4. Historial de cargas ─────────────────────────────────────────────────
+
+-- Historial de cargas
 SELECT * FROM carga_log ORDER BY id_carga;

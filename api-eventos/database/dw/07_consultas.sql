@@ -1,25 +1,10 @@
--- ============================================================================
--- DW · 07 · Consultas: las preguntas que responde el data warehouse
--- ----------------------------------------------------------------------------
--- Se corre en la base: backstage_dw
--- En pgAdmin: seleccionar una consulta con el mouse y apretar F5 para correr solo esa.
---
--- Todas tienen la misma forma (es la ventaja del modelo estrella):
---   FROM fact_ventas
---   JOIN las dimensiones por las que se quiere mirar
---   GROUP BY los atributos de esas dimensiones
---   SUM / COUNT de las medidas
--- ============================================================================
+-- Consultas del data warehouse (base backstage_dw)
 
-
--- ─── Pregunta 1 ─────────────────────────────────────────────────────────────
--- ¿Cuánto recauda cada productora por mes, y cuánto cobra la plataforma en cargo por servicio?
--- Mes = mes de la COMPRA (cuándo entra la plata), no del evento.
--- ROLLUP agrega una fila de total por productora y una de total general.
+-- Pregunta 1: ¿Cuánto recauda cada productora por mes y cuánto cobra la plataforma en cargo por servicio?
 SELECT
-    CASE WHEN GROUPING(p.nombre) = 1 THEN '— TOTAL GENERAL —' ELSE p.nombre END   AS productora,
+    CASE WHEN GROUPING(p.nombre) = 1 THEN 'TOTAL GENERAL' ELSE p.nombre END AS productora,
     CASE WHEN GROUPING(f.anio_mes) = 1 AND GROUPING(p.nombre) = 0 THEN 'Total'
-         ELSE f.anio_mes END                                                     AS mes,
+         ELSE f.anio_mes END                                              AS mes,
     SUM(v.cantidad)                         AS entradas,
     SUM(v.precio_pagado)                    AS recaudacion_productora,
     SUM(v.cargo_servicio)                   AS cargo_plataforma,
@@ -31,9 +16,7 @@ GROUP BY ROLLUP (p.nombre, f.anio_mes)
 ORDER BY GROUPING(p.nombre), p.nombre, GROUPING(f.anio_mes), f.anio_mes;
 
 
--- ─── Pregunta 2a ────────────────────────────────────────────────────────────
--- ¿Qué sectores venden más en cada evento? ¿Qué porcentaje de su capacidad vendieron?
--- RANK() numera los sectores dentro de cada evento, del que más vendió al que menos.
+-- Pregunta 2a: ¿Qué sectores venden más en cada evento y qué porcentaje de su capacidad vendieron?
 SELECT e.fecha_inicio                       AS fecha,
        e.nombre                             AS evento,
        s.nombre                             AS sector,
@@ -49,8 +32,7 @@ GROUP BY e.sk_evento, e.fecha_inicio, e.nombre, s.nombre, s.capacidad
 ORDER BY e.fecha_inicio, puesto;
 
 
--- ─── Pregunta 2b ────────────────────────────────────────────────────────────
--- ¿Qué tarifas venden más? (Preventa contra General, en todo el período)
+-- Pregunta 2b: ¿Qué tarifas venden más?
 SELECT t.nombre                                                   AS tarifa,
        SUM(v.cantidad)                                            AS entradas,
        round(100.0 * SUM(v.cantidad) / SUM(SUM(v.cantidad)) OVER (), 1) AS pct_entradas,
@@ -62,9 +44,7 @@ GROUP BY t.nombre
 ORDER BY entradas DESC;
 
 
--- ─── Pregunta 3a ────────────────────────────────────────────────────────────
--- ¿Con cuánta anticipación compra la gente? (curva de venta)
--- dias_anticipacion es una medida que calculó la carga: en la operativa no existe.
+-- Pregunta 3a: ¿Con cuánta anticipación compra la gente?
 SELECT CASE WHEN v.dias_anticipacion = 0  THEN '1. El mismo día'
             WHEN v.dias_anticipacion <= 7  THEN '2. De 1 a 7 días antes'
             WHEN v.dias_anticipacion <= 30 THEN '3. De 8 a 30 días antes'
@@ -77,8 +57,7 @@ GROUP BY 1
 ORDER BY 1;
 
 
--- ─── Pregunta 3b ────────────────────────────────────────────────────────────
--- ¿Cambia la anticipación según el tipo de lugar?
+-- Pregunta 3b: ¿Cambia la anticipación según el tipo de lugar?
 SELECT l.tipo                                  AS tipo_lugar,
        SUM(v.cantidad)                         AS entradas,
        round(AVG(v.dias_anticipacion), 1)      AS dias_promedio,
@@ -89,10 +68,7 @@ GROUP BY l.tipo
 ORDER BY dias_promedio DESC;
 
 
--- ─── Pregunta 4a ────────────────────────────────────────────────────────────
--- ¿Qué medios de pago se usan en cada productora?
--- Se cuentan COMPRAS, no entradas: una compra de 4 entradas es un solo pago.
--- Como el grano es la entrada, se cuenta con COUNT(DISTINCT id_compra).
+-- Pregunta 4a: ¿Qué medios de pago se usan en cada productora? (se cuentan compras, no entradas)
 SELECT p.nombre                                                       AS productora,
        m.nombre                                                       AS medio_pago,
        COUNT(DISTINCT v.id_compra)                                    AS compras,
@@ -106,8 +82,7 @@ GROUP BY p.nombre, m.nombre
 ORDER BY p.nombre, compras DESC;
 
 
--- ─── Pregunta 4b ────────────────────────────────────────────────────────────
--- Medios de pago por tipo de lugar, en columnas (FILTER arma una columna por medio)
+-- Pregunta 4b: ¿Qué medios de pago se usan según el tipo de lugar?
 SELECT l.tipo                                                                   AS tipo_lugar,
        COUNT(DISTINCT v.id_compra)                                              AS compras,
        COUNT(DISTINCT v.id_compra) FILTER (WHERE m.codigo = 'credito')          AS credito,
@@ -120,13 +95,7 @@ GROUP BY l.tipo
 ORDER BY compras DESC;
 
 
--- ============================================================================
--- Para la defensa: la pregunta 1 hecha directo en la base OPERATIVA
--- ----------------------------------------------------------------------------
--- Correr en la base backstage. Hay que saber que el cargo está en compras, que la
--- productora se llega por eventos → empresas, y acordarse de filtrar las pagadas.
--- En el DW eso ya lo resolvió la carga: la consulta solo agrupa.
--- ============================================================================
+-- Pregunta 1 hecha en la base operativa, para comparar (correr en backstage)
 -- SELECT em.nombre AS productora,
 --        to_char(c.fecha, 'YYYY-MM') AS mes,
 --        COUNT(e.id_entrada)         AS entradas,

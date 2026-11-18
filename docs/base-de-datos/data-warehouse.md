@@ -230,6 +230,8 @@ Algunos resultados de las consultas para tener a mano en la defensa:
 
 ## 6. Cómo armarlo en tu PC
 
+La defensa se hace desde **una sola PC**, que ya tiene las dos bases armadas. Los demás no necesitan instalar nada; esta sección es por si alguien quiere probarlo en la suya.
+
 Requisito: PostgreSQL instalado en Windows (con pgAdmin). `postgres_fdw`, `pgcrypto` y `btree_gist` vienen incluidas.
 
 ### Opción A — Todo de una (recomendada)
